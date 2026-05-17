@@ -1,1 +1,5 @@
 fish/.config/fish/fish_variables
+nvim/.local/
+nvim/.cache/
+nvim/.state/
+nvim/.config/nvim.bk
