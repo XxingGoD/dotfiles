@@ -1,0 +1,31 @@
+#!/bin/zsh
+
+INSTALL_DIR="~/CODE/SRC/glibcSRC"
+
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+    echo "【错误】请传入glibc版本号作为唯一参数！"
+    echo "正确用法：$0 版本号  示例：$0 2.23  或  $0 2.31"
+    exit 1
+fi
+
+GLIBC_VERSION=$1
+
+DOWNLOAD_URL="https://ftp.gnu.org/gnu/libc/glibc-${GLIBC_VERSION}.tar.gz"
+PACKAGE_NAME="glibc-${GLIBC_VERSION}.tar.gz"
+PACKAGE_FULL_PATH="${INSTALL_DIR}/${PACKAGE_NAME}"
+
+mkdir -p ${INSTALL_DIR}
+echo "【提示】工作目录已准备好：${INSTALL_DIR}（压缩包+解压文件均在此）"
+
+echo -e "\n【开始下载】glibc-${GLIBC_VERSION}，下载地址：${DOWNLOAD_URL}"
+
+curl -L -o ${PACKAGE_FULL_PATH} ${DOWNLOAD_URL}
+
+echo -e "\n【开始解压】${PACKAGE_NAME} -> ${INSTALL_DIR}"
+tar -zxvf ${PACKAGE_FULL_PATH} -C ${INSTALL_DIR}
+
+echo -e "\n【成功】glibc-${GLIBC_VERSION} 下载并解压完成！"
+echo "压缩包位置：${PACKAGE_FULL_PATH}"
+echo "解压后目录：${INSTALL_DIR}/glibc-${GLIBC_VERSION}"

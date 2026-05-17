@@ -1,0 +1,54 @@
+#!/bin/zsh
+DOWNLOAD_DIR="/mnt/e/CODE/SRC/kernelSRC" 
+AUTO_UNCOMPRESS="yes"         
+UNCOMPRESS_DIR="${DOWNLOAD_DIR}" 
+
+# 严格模式：命令失败/变量未定义/管道失败时，脚本立即退出，避免无效执行
+set -euo pipefail
+
+# 1. 校验参数：必须且仅能传入1个版本号参数
+if [ $# -ne 1 ]; then
+    echo -e "\033[31m【错误】参数错误！\033[0m"
+    echo "正确用法：$0 <Linux内核完整版本号>"
+    echo "示例1：$0 5.15.154（LTS长期支持版）"
+    echo "示例2：$0 6.6.10（稳定版）"
+    echo "示例3：$0 4.19.304（经典LTS版）"
+    exit 1
+fi
+
+# 2. 接收传入的版本号，自动提取主版本号（用于拼接清华源地址，如5.15.154→5，6.6.10→6）
+KERNEL_VERSION="$1"
+KERNEL_MAJOR=$(echo "${KERNEL_VERSION}" | cut -d. -f1)  # 按点分割，取第一个字段为主版本号
+PACKAGE_NAME="linux-${KERNEL_VERSION}.tar.gz"           # 源码包名
+# 拼接清华源下载地址（核心：自动适配vX.x目录，无需手动修改）
+DOWNLOAD_URL="https://mirrors.tuna.tsinghua.edu.cn/kernel/v${KERNEL_MAJOR}.x/${PACKAGE_NAME}"
+
+# 3. 自动创建下载/解压目录（-p：多级目录自动创建，已存在不报错）
+mkdir -p "${DOWNLOAD_DIR}"
+mkdir -p "${UNCOMPRESS_DIR}"
+echo -e "\033[32m【提示】目录已准备好\033[0m"
+echo "下载目录：$(realpath "${DOWNLOAD_DIR}")"
+echo "解压目录：$(realpath "${UNCOMPRESS_DIR}")"
+
+# 4. 下载指定版本内核源码（-c：断点续传，-q：静默下载，--show-progress：显示进度条）
+DOWNLOAD_PATH="${DOWNLOAD_DIR}/${PACKAGE_NAME}"
+echo -e "\n\033[32m【开始下载】\033[0mLinux ${KERNEL_VERSION} 源码"
+echo "下载地址：${DOWNLOAD_URL}"
+echo "保存路径：$(realpath "${DOWNLOAD_PATH}")"
+wget -c --show-progress "${DOWNLOAD_URL}" -O "${DOWNLOAD_PATH}"
+
+# 5. 可选自动解压（根据配置项AUTO_UNCOMPRESS决定是否执行）
+if [ "${AUTO_UNCOMPRESS}" = "yes" ]; then
+    echo -e "\n\033[32m【开始解压】\033[0m${PACKAGE_NAME} → ${UNCOMPRESS_DIR}"
+    # -zxvf：解压tar.gz并显示过程，--strip-components=0：保留原目录结构
+    tar -zxvf "${DOWNLOAD_PATH}" -C "${UNCOMPRESS_DIR}"
+    UNCOMPRESS_RESULT="${UNCOMPRESS_DIR}/linux-${KERNEL_VERSION}"
+    echo -e "\n\033[32m【解压完成】\033[0m解压后源码目录：$(realpath "${UNCOMPRESS_RESULT}")"
+fi
+
+# 6. 执行完成最终提示
+echo -e "\n\033[32m【操作成功】\033[0mLinux ${KERNEL_VERSION} 源码处理完成！"
+if [ "${AUTO_UNCOMPRESS}" = "no" ]; then
+    echo "源码包位置：$(realpath "${DOWNLOAD_PATH}")，可手动执行 tar -zxvf 该文件解压"
+fi
+

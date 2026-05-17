@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+
+from pwn import *
+import os
+import shutil
+import sys
+
+def libc_download(libc_path):
+    """
+    根据libc文件下载对应的libc并嵌入调试信息
+    
+    param:
+        libc_path: libc文件路径
+    
+    eg:
+        libc_download('./libc.so.6')
+    """
+    # 下载libc库
+    libc_dir = libcdb.download_libraries(libc_path)
+    
+    # 检查下载是否成功
+    if libc_dir is None or not os.path.exists(libc_dir):
+        log.error('libc库下载失败，请检查网络或libc文件有效性')
+        return None
+    
+    libc_dir = libc_dir.decode() if isinstance(libc_dir, bytes) else libc_dir
+    
+    # 确保目标目录存在
+    target_dir = os.getcwd() + '/libc_dir'
+    os.makedirs(target_dir, exist_ok=True)
+    
+    # 遍历源目录中的所有文件并拷贝
+    files = os.listdir(libc_dir)
+    if len(files) == 0:
+        log.error('下载的libc目录为空')
+        return None
+    
+    log.info('libc下载目录 : ' + libc_dir)
+    log.info('libc拷贝目录 : ' + target_dir)
+    
+    for file_name in files:
+        source_file = os.path.join(libc_dir, file_name)
+        target_file = os.path.join(target_dir, file_name)
+        if os.path.isfile(source_file):
+            shutil.copy(source_file, target_file)
+    
+    # 输出校验信息
+    import hashlib
+    import subprocess
+
+    # 源libc校验
+    with open(libc_path, 'rb') as f:
+        log.info('源libc sha256 : ' + hashlib.sha256(f.read()).hexdigest())
+    src_strings = subprocess.check_output(['strings', libc_path], stderr=subprocess.DEVNULL).decode(errors='ignore')
+    for line in src_strings.splitlines():
+        if 'GNU C Library' in line:
+            log.info('源libc string : ' + line.strip())
+            break
+
+    # 匹配libc校验
+    import re
+    libc_files = []
+    for root, dirs, filenames in os.walk(target_dir):
+        for fname in filenames:
+            fpath = os.path.join(root, fname)
+            if fname == 'libc.so.6' or re.search(r'libc-\d+\.\d+\.so$', fname):
+                libc_files.append(fpath)
+
+    for fpath in sorted(libc_files):
+        with open(fpath, 'rb') as f:
+            log.info(f'匹配libc sha256 ({os.path.basename(fpath)}) : ' + hashlib.sha256(f.read()).hexdigest())
+        matched_strings = subprocess.check_output(['strings', fpath], stderr=subprocess.DEVNULL).decode(errors='ignore')
+        for line in matched_strings.splitlines():
+            if 'GNU C Library' in line:
+                log.info(f'匹配libc string ({os.path.basename(fpath)}) : ' + line.strip())
+                break
+    
+    return libc_dir
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print(f"Usage: {sys.argv[0]} <libc_path>")
+        sys.exit(1)
+    libc_path = sys.argv[1]
+    libc_download(libc_path)

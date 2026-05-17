@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# 默认参数
+DEFAULT_OUTPUT_DIR="core"
+DEFAULT_SOURCE_FILE="exp.c"
+
+# 根据输入参数数量决定使用默认值还是输入值
+if [ $# -eq 0 ]; then
+    output_dir="$DEFAULT_OUTPUT_DIR"
+    source_file="$DEFAULT_SOURCE_FILE"
+elif [ $# -eq 2 ]; then
+    output_dir="$1"
+    source_file="$2"
+else
+    echo "Usage: $0 [output directory C source file]"
+    echo "Default: $0 $DEFAULT_OUTPUT_DIR $DEFAULT_SOURCE_FILE"
+    exit 1
+fi
+
+# 检查源文件是否存在
+if [ ! -f "$source_file" ]; then
+    echo "Error: Source file '$source_file' does not exist"
+    exit 1
+fi
+
+# 获取不带扩展名的文件名
+filename=$(basename "$source_file" .c)
+
+# 编译程序
+echo "Compiling $source_file..."
+gcc -g "$source_file" -static -masm=intel -o "$filename"
+
+if [ $? -ne 0 ]; then
+    echo "Compilation failed!"
+    exit 1
+fi
+
+# 复制编译后的文件到指定目录的根目录
+cp "$filename" "$output_dir/"
+
+# 生成 cpio 文件
+cd "$output_dir"
+find . | cpio -o --format=newc > rootfs.cpio
+mv rootfs.cpio ..
+cd ..
+
+echo "Packaging completed! rootfs.cpio has been generated"

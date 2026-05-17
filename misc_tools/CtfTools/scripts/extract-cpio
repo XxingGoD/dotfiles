@@ -1,0 +1,29 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <cpio file>"
+    exit 1
+fi
+
+cpio_file="$1"
+
+# 检查文件是否存在
+if [ ! -f "$cpio_file" ]; then
+    echo "Error: File '$cpio_file' does not exist"
+    exit 1
+fi
+
+# 检查是否为 cpio 文件
+file_type=$(file "$cpio_file")
+if [[ ! $file_type =~ "cpio archive" ]]; then
+    echo "Error: '$cpio_file' is not a valid cpio file"
+    exit 1
+fi
+
+# 创建并进入新目录
+mkdir -p core
+cp "$cpio_file" core/
+cd core
+cpio -idmv < "$cpio_file"
+
+echo "Extraction completed! Files have been extracted to 'core' directory"

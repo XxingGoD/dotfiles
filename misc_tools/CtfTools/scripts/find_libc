@@ -1,0 +1,424 @@
+#!/usr/bin/env python3
+from pwn import *
+import os
+import re
+import glob
+import shutil
+import subprocess
+
+LIBC_DB_PATH = "/home/starlight/CtfTools/libc-database/db"
+
+UBUNTU_GLIBC_MAP = {
+    "16.04": "2.23",
+    "16.10": "2.24",
+    "17.04": "2.25",
+    "17.10": "2.26",
+    "18.04": "2.27",
+    "18.10": "2.28",
+    "19.04": "2.29",
+    "19.10": "2.30",
+    "20.04": "2.31",
+    "20.10": "2.32",
+    "21.04": "2.33",
+    "21.10": "2.34",
+    "22.04": "2.35",
+    "22.10": "2.36",
+    "23.04": "2.37",
+    "23.10": "2.38",
+    "24.04": "2.39",
+    "24.10": "2.40",
+    "25.04": "2.41",
+    "25.10": "2.42"
+}
+
+def get_elf_arch(elf_path):
+    try:
+        with context.local(log_level='error'):
+            elf = ELF(elf_path, checksec=False)
+        arch = elf.arch
+        if arch in ('i386', 'i686'):
+            return 'i386'
+        elif arch in ('amd64', 'x86_64'):
+            return 'amd64'
+        else:
+            log.warning(f"pwnlib 返回未知架构: {arch}")
+    except Exception as e:
+        log.debug(f"pwnlib ELF 解析失败: {e}")
+    try:
+        result = subprocess.check_output(f"readelf -h {elf_path} 2>/dev/null | grep 'Machine'", shell=True, text=True)
+        if "Advanced Micro Devices X86-64" in result or "x86-64" in result.lower():
+            return "amd64"
+        elif "Intel 80386" in result or "i386" in result.lower() or "i686" in result.lower():
+            return "i386"
+        else:
+            file_out = subprocess.check_output(f"file {elf_path}", shell=True, text=True)
+            if "x86-64" in file_out:
+                return "amd64"
+            elif "Intel 80386" in file_out or "32-bit" in file_out:
+                return "i386"
+            else:
+                return "unknown"
+    except Exception as e:
+        log.debug(f"失败: {e}")
+        return "unknown"
+
+def get_required_glibc_version(elf_path):
+    try:
+        cmd = f"objdump -T {elf_path} 2>/dev/null | grep GLIBC_ | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -1"
+        version = os.popen(cmd).read().strip()
+        return version.replace('GLIBC_', '') if version else None
+    except:
+        return None
+
+def version(v):
+    return tuple(map(int, v.split('.')))
+
+def get_glibc_version_from_elf(elf_path):
+    if not os.path.exists(elf_path):
+        log.error(f"文件不存在: {elf_path}")
+        return set()
+    versions = set()
+    required = get_required_glibc_version(elf_path)
+    if required:
+        versions.add(f"required_glibc_{required}")
+    try:
+        cmd = r'strings {} | grep -E "GLIBC_[0-9]+\.[0-9]+(\.[0-9]+)?" | sort -V | uniq'.format(elf_path)
+        result = os.popen(cmd).read()
+        glibc_matches = re.findall(r'GLIBC_([0-9]+\.[0-9]+(?:\.[0-9]+)?)', result)
+        for v in glibc_matches:
+            versions.add(f"glibc_{v}")
+        if glibc_matches:
+            max_ver = max(glibc_matches, key=lambda x: [int(n) for n in x.split('.')])
+            versions.add(f"max_glibc_{max_ver}")
+    except Exception as e:
+        log.debug(f"strings GLIBC 分析失败: {e}")
+    try:
+        cmd = f"strings {elf_path} | grep 'GCC: ('"
+        gcc_line = os.popen(cmd).read().strip()
+        if gcc_line:
+            gcc_ver_match = re.search(r'(\d+)\.(\d+)\.(\d+)', gcc_line)
+            if gcc_ver_match:
+                major = f"{gcc_ver_match.group(1)}.{gcc_ver_match.group(2)}.{gcc_ver_match.group(3)}"
+                inferred_ubuntu = None
+                if   version(major) >= version("15.2.0"):
+                    inferred_ubuntu = "25.10"
+                elif version(major) >= version("14.3.0"):
+                    inferred_ubuntu = "25.04"
+                elif version(major) >= version("14.2.0"):
+                    inferred_ubuntu = "24.10"
+                elif version(major) >= version("13.2.0"):
+                    inferred_ubuntu = "24.04"
+                elif version(major) >= version("12.3.0"):
+                    inferred_ubuntu = "23.04"
+                elif version(major) >= version("12.2.0"):
+                    inferred_ubuntu = "22.10"
+                elif version(major) >= version("11.4.0"):
+                    inferred_ubuntu = "22.04"
+                elif version(major) >= version("11.2.0"):
+                    inferred_ubuntu = "21.10"
+                elif version(major) >= version("10.3.0"):
+                    inferred_ubuntu = "21.04"
+                elif version(major) >= version("10.2.0"):
+                    inferred_ubuntu = "20.10"
+                elif version(major) >= version("9.4.0"):
+                    inferred_ubuntu = "20.04"
+                elif version(major) >= version("7.3.0"):
+                    inferred_ubuntu = "18.04"
+                elif version(major) >= version("5.4.0"):
+                    inferred_ubuntu = "16.04"
+                if inferred_ubuntu:
+                    versions.add(f"ubuntu_{inferred_ubuntu} (inferred from GCC {major})")
+                    if inferred_ubuntu in UBUNTU_GLIBC_MAP:
+                        likely_glibc = UBUNTU_GLIBC_MAP[inferred_ubuntu]
+                        versions.add(f"likely_glibc_{likely_glibc}")
+                        log.debug(f"从 GCC {major} 推断 Ubuntu {inferred_ubuntu} -> likely GLIBC {likely_glibc}")
+    except Exception as e:
+        log.debug(f"GCC 版本提取失败: {e}")
+    try:
+        result = os.popen(f'readelf -p .note.gnu.build-id {elf_path} 2>/dev/null; strings {elf_path} | grep -iE "ubuntu|debian" | head -5').read()
+        ubuntu_matches = re.findall(r'Ubuntu\s+([0-9]{2}\.[0-9]{2})', result, re.I)
+        for v in ubuntu_matches:
+            versions.add(f"ubuntu_{v}")
+            if v in UBUNTU_GLIBC_MAP:
+                versions.add(f"likely_glibc_{UBUNTU_GLIBC_MAP[v]}")
+    except Exception as e:
+        log.debug(f"OS 版本分析失败: {e}")
+    return versions
+
+def get_build_id(elf_path):
+    try:
+        result = os.popen(f'readelf -n {elf_path} 2>/dev/null | grep "Build ID"').read()
+        match = re.search(r'Build ID:\s*([a-f0-9]+)', result)
+        if match:
+            return match.group(1)
+    except:
+        pass
+    return None
+
+def find_libc_by_build_id(build_id, db_path):
+    if not build_id:
+        return []
+    matches = []
+    build_id_lower = build_id.lower()
+    for root, dirs, files in os.walk(db_path):
+        for f in files:
+            if 'libc' in f and f.endswith('.so'):
+                full_path = os.path.join(root, f)
+                try:
+                    result = os.popen(f'readelf -n {full_path} 2>/dev/null | grep "Build ID"').read()
+                    match = re.search(r'Build ID:\s*([a-f0-9]+)', result)
+                    if match:
+                        file_build_id = match.group(1).lower()
+                        if file_build_id == build_id_lower or \
+                           file_build_id.startswith(build_id_lower[:16]) or \
+                           build_id_lower.startswith(file_build_id[:16]):
+                            matches.append({
+                                'path': full_path,
+                                'name': os.path.basename(full_path),
+                                'build_id': file_build_id,
+                                'match_type': 'exact' if file_build_id == build_id_lower else 'partial'
+                            })
+                except:
+                    continue
+    return matches
+
+def extract_version_from_filename(filename):
+    match = re.search(r'(\d+\.\d+(?:\.\d+)?)', filename)
+    if match:
+        return match.group(1)
+    return None
+
+def filename_arch_match(filename, target_arch):
+    filename_lower = filename.lower()
+    if target_arch == 'amd64':
+        has_amd64 = 'amd64' in filename_lower or 'x86-64' in filename_lower
+        has_i386 = 'i386' in filename_lower or 'i686' in filename_lower
+        has_x32 = 'x32' in filename_lower
+        return has_amd64 and not (has_i386 or has_x32)
+    elif target_arch == 'i386':
+        has_i386 = 'i386' in filename_lower or 'i686' in filename_lower
+        has_amd64 = 'amd64' in filename_lower or 'x86-64' in filename_lower
+        has_x32 = 'x32' in filename_lower
+        return has_i386 and not (has_amd64 or has_x32)
+    else:
+        return False
+
+def check_libc_arch(libc_path, target_arch):
+    arch = get_elf_arch(libc_path)
+    return arch == target_arch
+
+def search_libc_by_version(version_info, db_path, target_arch):
+    matches = []
+    # 提取目标版本：优先 likely，其次 required，最后 max
+    target_glibc = None
+    for ver in version_info:
+        if ver.startswith('likely_glibc_'):
+            target_glibc = ver.replace('likely_glibc_', '')
+            break
+    if not target_glibc:
+        for ver in version_info:
+            if ver.startswith('required_glibc_'):
+                target_glibc = ver.replace('required_glibc_', '')
+                break
+    if not target_glibc:
+        for ver in version_info:
+            if ver.startswith('max_glibc_'):
+                target_glibc = ver.replace('max_glibc_', '')
+                break
+
+    target_ubuntu = None
+    for ver in version_info:
+        if ver.startswith('ubuntu_') and 'inferred' not in ver:
+            target_ubuntu = ver.replace('ubuntu_', '')
+            break
+    if not target_ubuntu:
+        for ver in version_info:
+            if ver.startswith('ubuntu_') and 'inferred' in ver:
+                match = re.search(r'ubuntu_([0-9.]+)', ver)
+                if match:
+                    target_ubuntu = match.group(1)
+                    break
+
+    log.info(f"目标 GLIBC: {target_glibc}, 目标 Ubuntu: {target_ubuntu}, 目标架构: {target_arch}")
+
+    for root, dirs, files in os.walk(db_path):
+        for f in files:
+            if not ('libc' in f and f.endswith('.so')):
+                continue
+            full_path = os.path.join(root, f)
+            filename = os.path.basename(full_path)
+
+            # 如果架构未知，暂时不按文件名过滤，让后续架构检查决定
+            if target_arch != 'unknown':
+                if not filename_arch_match(filename, target_arch):
+                    continue
+
+            score = 0
+            match_reason = []
+            # 只要进入循环就给基础分（未知架构时仍给分）
+            score += 100
+            match_reason.append("potential_match")
+
+            # ... 后续评分代码不变 ...
+            file_ver = extract_version_from_filename(filename)
+            if file_ver and target_glibc:
+                if file_ver == target_glibc:
+                    score += 200
+                    match_reason.append(f"exact_glibc_{file_ver}")
+                elif file_ver.startswith(target_glibc + '.'):
+                    score += 150
+                    match_reason.append(f"prefix_glibc_{file_ver}")
+                elif target_glibc.startswith(file_ver + '.'):
+                    score += 50
+                    match_reason.append(f"parent_glibc_{file_ver}")
+            if target_ubuntu and target_ubuntu.replace('.', '') in filename:
+                score += 30
+                match_reason.append(f"ubuntu_{target_ubuntu}")
+
+            matches.append({
+                'path': full_path,
+                'name': filename,
+                'score': score,
+                'reason': ', '.join(match_reason),
+                'glibc_ver': file_ver
+            })
+
+    matches.sort(key=lambda x: x['score'], reverse=True)
+
+    # 最终验证架构
+    verified_matches = []
+    for m in matches:
+        if check_libc_arch(m['path'], target_arch):
+            verified_matches.append(m)
+        else:
+            log.debug(f"架构不匹配（剔除）: {m['name']}")
+    return verified_matches
+
+def copy_libc_to_target(libc_path, target_dir='.'):
+    os.makedirs(target_dir, exist_ok=True)
+    target_libc = os.path.join(target_dir, 'libc.so.6')
+    shutil.copy2(libc_path, target_libc)
+    libc_dir = os.path.dirname(libc_path)
+    search_dirs = [libc_dir, os.path.dirname(libc_dir)]
+    for d in search_dirs:
+        ld_patterns = ['ld-linux-x86-64.so*', 'ld-linux.so*', 'ld-*.so']
+        for pattern in ld_patterns:
+            ld_files = glob.glob(os.path.join(d, pattern))
+            if ld_files:
+                shutil.copy2(ld_files[0], target_dir)
+                log.info(f"复制 linker: {os.path.basename(ld_files[0])}")
+                return target_dir
+    log.warning("未找到对应的 linker，请手动复制")
+    return target_dir
+
+def auto_find_libc(elf_path):
+    log.info(f"分析文件: {elf_path}")
+    arch = get_elf_arch(elf_path)
+    log.info(f"架构: {arch}")
+    build_id = get_build_id(elf_path)
+    all_matches = []
+    
+    if build_id:
+        log.success(f"Build ID: {build_id}")
+        bid_matches = find_libc_by_build_id(build_id, LIBC_DB_PATH)
+        if bid_matches:
+            log.success(f"通过 Build ID 找到 {len(bid_matches)} 个匹配:")
+            for m in bid_matches[:3]:
+                match_type = "精确" if m['match_type'] == 'exact' else "部分"
+                log.info(f"  [{match_type}] {m['name']}")
+                log.info(f"      Build ID: {m['build_id'][:24]}...")
+                log.info(f"      路径: {m['path']}")
+            all_matches.extend(bid_matches)
+            
+    versions = get_glibc_version_from_elf(elf_path)
+    if versions:
+        log.success("检测到版本信息:")
+        for v in sorted(versions):
+            log.info(f"  - {v}")
+            
+    ver_matches = search_libc_by_version(versions, LIBC_DB_PATH, arch)
+    if ver_matches:
+        all_matches.extend(ver_matches)
+        
+    if not all_matches:
+        log.error("未找到匹配的 libc")
+        list_available_versions()
+        return []
+        
+    # 去重并排序
+    seen = set()
+    unique_matches = []
+    for m in all_matches:
+        if m['path'] not in seen:
+            seen.add(m['path'])
+            unique_matches.append(m)
+            
+    def sort_key(m):
+        score = m.get('score', 0)
+        if m.get('match_type') == 'exact':
+            score += 1000
+        return score
+        
+    unique_matches.sort(key=sort_key, reverse=True)
+    
+    limit = min(10, len(unique_matches))
+    log.success(f"找到 {len(unique_matches)} 个候选 libc（按匹配度排序）:")
+    for i in range(limit):
+        m = unique_matches[i]
+        log.info(f"[{i}] {m['name']}")
+        log.info(f"    匹配度: {m.get('score', 'N/A')}, 原因: {m.get('reason', m.get('match_type', ''))}")
+        log.info(f"    GLIBC: {m.get('glibc_ver', 'unknown')}")
+        log.info(f"    路径: {m['path']}")
+        if i == 0:
+            log.info(f"    >>> 推荐 <<<")
+            
+    return unique_matches[:limit]
+
+def list_available_versions():
+    if not os.path.exists(LIBC_DB_PATH):
+        return
+    versions = set()
+    for root, dirs, files in os.walk(LIBC_DB_PATH):
+        for f in files:
+            if 'libc' in f and f.endswith('.so'):
+                ver = extract_version_from_filename(f)
+                if ver:
+                    versions.add(ver)
+    log.info(f"数据库中的 GLIBC 版本（共 {len(versions)} 个）:")
+    for v in sorted(versions, key=lambda x: [int(n) for n in x.split('.')])[-20:]:
+        log.info(f"  - {v}")
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        print(f"Usage: {sys.argv[0]} <elf_file>")
+        sys.exit(1)
+    elf_path = sys.argv[1]
+    matches = auto_find_libc(elf_path)
+    if not matches:
+        sys.exit(1)
+
+    selected_match = matches[0]
+    if len(matches) > 1:
+        try:
+            choice = input(f"\n请选择要复制的 libc 文件 (0-{len(matches)-1}) [0]: ").strip()
+            if choice:
+                idx = int(choice)
+                if 0 <= idx < len(matches):
+                    selected_match = matches[idx]
+                else:
+                    log.warning(f"索引 {idx} 超出范围，使用默认推荐")
+        except ValueError:
+            log.warning("无效输入，使用默认推荐")
+
+    try:
+        copy = input(f"\n复制 {selected_match['name']} 到 . ? [Y/n]: ").lower().strip() != 'n'
+    except EOFError:
+        copy = True
+
+    if copy:
+        target = copy_libc_to_target(selected_match['path'])
+        log.success(f"已复制到: {target}")
+        log.info("验证:")
+        os.system(f"sha256sum {target}/libc.so.6 | cut -d' ' -f1 | xargs echo '  SHA256:'")
+        os.system(f"strings {target}/libc.so.6 | grep 'GNU C Library' | head -1 | sed 's/^/  /'")

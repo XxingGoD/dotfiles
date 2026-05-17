@@ -1,3 +1,0 @@
-b vuln
-b read
-directory /usr/src/glibc/glibc-2.31/stdio-common
