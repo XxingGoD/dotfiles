@@ -61,6 +61,9 @@ M.seekable_mimes = {
 }
 
 M.suffix = "_mediainfo"
-M.SHELL = os.getenv("SHELL") or ""
+M.SHELL = os.getenv("SHELL")
+if not M.SHELL or M.SHELL == "" then
+	M.SHELL = "/bin/sh"
+end
 
 return M

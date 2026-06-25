@@ -28,6 +28,44 @@ function M.path_quote(path)
 	return result
 end
 
+local function file_exists(path)
+	local file = io.open(path, "rb")
+	if file then
+		file:close()
+		return true
+	end
+	return false
+end
+
+function M.bin(cmd)
+	if not cmd or tostring(cmd) == "" then
+		return cmd
+	end
+	cmd = tostring(cmd)
+	if cmd:find("/", 1, true) then
+		return cmd
+	end
+
+	local seen = {}
+	local path = (os.getenv("PATH") or "") .. ":/usr/local/bin:/usr/bin:/bin"
+	for dir in path:gmatch("([^:]+)") do
+		if dir ~= "" and not seen[dir] then
+			seen[dir] = true
+			local candidate = dir .. "/" .. cmd
+			if file_exists(candidate) then
+				return candidate
+			end
+		end
+	end
+
+	return cmd
+end
+
+function M.command_error(cmd, err)
+	local detail = tostring(err or "unknown error"):gsub("%s+$", "")
+	return string.format("Command `%s` failed: %s\n", cmd, detail)
+end
+
 M.force_render = ya.sync(function(_, _)
 	(ui.render or ya.render)()
 end)

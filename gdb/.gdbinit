@@ -2,6 +2,7 @@ source /usr/share/pwndbg/gdbinit.py
 source /usr/share/pwngdb/pwngdb.py
 source /usr/share/pwngdb/angelheap/gdbinit.py
 source /home/starlight/splitmind/gdbinit.py
+source /home/starlight/CtfTools/ret-sync/ext_gdb/sync.py
 
 define hook-run
 python

@@ -13,7 +13,7 @@ local function cover_layer_count(job)
 	if layer_count then
 		return layer_count
 	end
-	local output, err = Command("ffprobe"):arg({
+	local output, err = Command(utils.bin("ffprobe")):arg({
 		"-v",
 		"error",
 		"-select_streams",
@@ -216,7 +216,7 @@ function M:peek(job)
 end
 
 function M:preload(job)
-	local cmd = "mediainfo"
+	local cmd = utils.bin("mediainfo")
 	local err_msg = ""
 	local is_valid_utf8_path = utils.is_valid_utf8(tostring(job.file.path or job.file.cache or job.file.url))
 
@@ -237,7 +237,7 @@ function M:preload(job)
 			end
 		end
 		local qv = 31 - math.floor(rt.preview.image_quality * 0.3)
-		local audio_preload_output, audio_preload_err = Command("ffmpeg"):arg({
+		local audio_preload_output, audio_preload_err = Command(utils.bin("ffmpeg")):arg({
 			"-v",
 			"error",
 			"-threads",
@@ -272,7 +272,10 @@ function M:preload(job)
 			ya.dbg("mediainfo", audio_preload_err)
 			ya.dbg("mediainfo", audio_preload_output.stderr)
 			err_msg = err_msg
-				.. string.format("Failed to start `%s`.\n Do you have `%s` installed?\n", "ffmpeg", "ffmpeg")
+				.. utils.command_error(
+					utils.bin("ffmpeg"),
+					audio_preload_err or (audio_preload_output and audio_preload_output.stderr)
+				)
 		else
 			cache_img_url_cha, _ = fs.cha(cache_img_url)
 			if not cache_img_url_cha then
@@ -289,7 +292,10 @@ function M:preload(job)
 				if (audio_preload_output.stderr ~= nil and audio_preload_output.stderr ~= "") or audio_preload_err then
 					ya.dbg("mediainfo", image_preload_err)
 					err_msg = err_msg
-						.. string.format("Failed to start `%s`.\n Do you have `%s` installed?\n", "magick", "magick")
+						.. utils.command_error(
+							utils.bin("magick"),
+							audio_preload_err or (audio_preload_output and audio_preload_output.stderr)
+						)
 				end
 			end
 		end
@@ -319,7 +325,7 @@ function M:preload(job)
 	end
 	if err then
 		ya.dbg("mediainfo", tostring(err))
-		err_msg = err_msg .. string.format("Failed to start `%s`. \n Do you have `%s` installed?\n", cmd, cmd)
+		err_msg = err_msg .. utils.command_error(cmd, err)
 	end
 
 	return fs.write(

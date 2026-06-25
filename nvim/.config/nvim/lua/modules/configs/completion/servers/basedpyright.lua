@@ -1,7 +1,42 @@
 -- https://detachhead.github.io/basedpyright
 local pwncli_source_root = "/home/starlight/CtfTools/pwncli"
+local python_root_markers = {
+	"pyrightconfig.json",
+	"pyproject.toml",
+	"setup.py",
+	"setup.cfg",
+	"requirements.txt",
+	"Pipfile",
+}
+
+local function find_python_root(bufnr)
+	local fname = vim.api.nvim_buf_get_name(bufnr)
+	if fname == "" then
+		return nil
+	end
+
+	local marker = vim.fs.find(python_root_markers, {
+		path = fname,
+		upward = true,
+	})[1]
+	if not marker then
+		return nil
+	end
+
+	local root = vim.fs.normalize(vim.fs.dirname(marker))
+	-- Treating $HOME as a Python workspace makes basedpyright enumerate the
+	-- entire home directory, which is too expensive on this machine.
+	if root == vim.fs.normalize(vim.uv.os_homedir()) then
+		return nil
+	end
+
+	return root
+end
 
 return {
+	root_dir = function(bufnr, on_dir)
+		on_dir(find_python_root(bufnr))
+	end,
 	settings = {
 		basedpyright = {
 			disableOrganizeImports = true,

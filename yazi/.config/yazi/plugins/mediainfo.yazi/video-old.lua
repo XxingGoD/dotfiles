@@ -185,7 +185,7 @@ function M:peek(job)
 end
 
 function M:preload(job)
-	local cmd = "mediainfo"
+	local cmd = utils.bin("mediainfo")
 	local err_msg = ""
 
 	-- NOTE: Preload image from video
@@ -199,7 +199,7 @@ function M:preload(job)
 
 	if not cache_img_status and video_preload_err then
 		ya.dbg("mediainfo", video_preload_err)
-		err_msg = err_msg .. string.format("Failed to start `%s`.\n Do you have `%s` installed?\n", "ffmpeg", "ffmpeg")
+		err_msg = err_msg .. utils.command_error(utils.bin("ffmpeg"), video_preload_err)
 	end
 
 	-- NOTE: Get mediainfo and save to cache folder
@@ -227,7 +227,7 @@ function M:preload(job)
 	end
 	if err then
 		ya.dbg("mediainfo", tostring(err))
-		err_msg = err_msg .. string.format("Failed to start `%s`. \n Do you have `%s` installed?\n", cmd, cmd)
+		err_msg = err_msg .. utils.command_error(cmd, err)
 	end
 
 	return fs.write(

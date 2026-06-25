@@ -28,7 +28,7 @@ filename=$(basename "$source_file" .c)
 
 # 编译程序
 echo "Compiling $source_file..."
-gcc -g "$source_file" -static -masm=intel -o "$filename"
+gcc -g "$source_file" -fno-stack-protector -static -masm=intel -o "$filename"
 
 if [ $? -ne 0 ]; then
     echo "Compilation failed!"

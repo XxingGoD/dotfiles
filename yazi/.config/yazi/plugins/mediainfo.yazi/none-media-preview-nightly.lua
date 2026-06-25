@@ -143,7 +143,7 @@ function M:peek(job)
 end
 
 function M:preload(job)
-	local cmd = "mediainfo"
+	local cmd = utils.bin("mediainfo")
 	local err_msg = ""
 	local is_valid_utf8_path = utils.is_valid_utf8(tostring(job.file.path or job.file.cache or job.file.url))
 
@@ -171,7 +171,7 @@ function M:preload(job)
 	end
 	if err then
 		ya.dbg("mediainfo", tostring(err))
-		err_msg = err_msg .. string.format("Failed to start `%s`. \n Do you have `%s` installed?\n", cmd, cmd)
+		err_msg = err_msg .. utils.command_error(cmd, err)
 	end
 
 	return fs.write(
