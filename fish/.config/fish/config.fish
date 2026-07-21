@@ -105,7 +105,7 @@ function cat
 	command bat $argv
 end
 function ls
-	command eza --icons $argv
+	command eza --icons=auto $argv
 end
 
 function lt
@@ -168,3 +168,6 @@ set -gx LESS_TERMCAP_us (printf '\e[1;32m')
 # This section can be safely removed at any time if needed.
 test -r '/home/starlight/.opam/opam-init/init.fish' && source '/home/starlight/.opam/opam-init/init.fish' > /dev/null 2> /dev/null; or true
 # END opam configuration
+
+# xlings
+test -f "/home/starlight/.xlings/config/shell/xlings-profile.fish"; and source "/home/starlight/.xlings/config/shell/xlings-profile.fish"
