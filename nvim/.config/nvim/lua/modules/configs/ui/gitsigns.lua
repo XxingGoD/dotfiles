@@ -10,7 +10,12 @@ return function()
 			untracked = { text = "┆" },
 		},
 		auto_attach = true,
-		on_attach = mapping.gitsigns,
+		on_attach = function(bufnr)
+			if require("core.bigfile").is_big(bufnr) then
+				return false
+			end
+			mapping.gitsigns(bufnr)
+		end,
 		signcolumn = true,
 		sign_priority = 6,
 		update_debounce = 100,

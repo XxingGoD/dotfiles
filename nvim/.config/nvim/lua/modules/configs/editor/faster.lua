@@ -2,17 +2,8 @@ return function()
 	require("modules.utils").load_plugin("faster", {
 		behaviours = {
 			bigfile = {
-				on = true,
-				features_disabled = {
-					"filetype",
-					"indent_blankline",
-					"lsp",
-					"matchparen",
-					"syntax",
-					"treesitter",
-					"vimopts",
-				},
-				filesize = 2, -- size of the file in MiB
+				-- core.bigfile handles this per buffer and also checks line count.
+				on = false,
 			},
 			fastmacro = {
 				on = true,

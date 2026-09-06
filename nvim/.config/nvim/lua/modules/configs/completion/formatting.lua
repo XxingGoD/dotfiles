@@ -10,7 +10,7 @@ local format_timeout = settings.format_timeout
 
 vim.api.nvim_create_user_command("Format", function()
 	M.format({
-		timeout = format_timeout,
+		timeout_ms = format_timeout,
 		filter = M.format_filter,
 	})
 end, {})
@@ -43,14 +43,14 @@ vim.api.nvim_create_user_command("FormatterToggleFt", function(opts)
 end, { nargs = 1, complete = "filetype" })
 
 function M.enable_format_on_save(is_configured)
-	local opts = { pattern = "*", timeout = format_timeout }
+	local opts = { pattern = "*", timeout_ms = format_timeout }
 	vim.api.nvim_create_augroup("format_on_save", { clear = true })
 	vim.api.nvim_create_autocmd("BufWritePre", {
 		group = "format_on_save",
 		pattern = opts.pattern,
 		callback = function()
 			require("completion.formatting").format({
-				timeout_ms = opts.timeout,
+				timeout_ms = opts.timeout_ms,
 				filter = M.format_filter,
 			})
 		end,
@@ -98,7 +98,7 @@ end
 function M.format_filter(clients)
 	return vim.tbl_filter(function(client)
 		local status_ok, formatting_supported = pcall(function()
-			return client.supports_method("textDocument/formatting")
+			return client:supports_method("textDocument/formatting")
 		end)
 		if status_ok and formatting_supported and client.name == "null-ls" then
 			return "null-ls"
@@ -140,7 +140,7 @@ function M.format(opts)
 	end
 
 	clients = vim.tbl_filter(function(client)
-		return client.supports_method("textDocument/formatting")
+		return client:supports_method("textDocument/formatting")
 	end, clients)
 
 	if #clients == 0 then
@@ -180,7 +180,7 @@ function M.format(opts)
 
 		-- Fall back to format the whole buffer (even if partial formatting failed)
 		local params = vim.lsp.util.make_formatting_params(opts.formatting_options)
-		local result, err = client.request_sync("textDocument/formatting", params, timeout_ms, bufnr)
+		local result, err = client:request_sync("textDocument/formatting", params, timeout_ms, bufnr)
 		if result and result.result then
 			vim.lsp.util.apply_text_edits(result.result, bufnr, client.offset_encoding)
 			if format_notify then

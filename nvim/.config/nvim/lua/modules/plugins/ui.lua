@@ -13,11 +13,11 @@ ui["akinsho/bufferline.nvim"] = {
 ui["folke/tokyonight.nvim"] = {
 	lazy = false,
 	priority = 1000,
-	config = require("ui.tokyonight"),
+    config = function() require("ui.tokyonight")() end,
 }
 ui["lewis6991/gitsigns.nvim"] = {
 	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
+    event = { "BufReadPost", "BufNewFile" },
 	config = require("ui.gitsigns"),
 }
 ui["lukas-reineke/indent-blankline.nvim"] = {
@@ -41,23 +41,23 @@ ui["rcarriga/nvim-notify"] = {
 	config = require("ui.notify"),
 }
 ui["folke/paint.nvim"] = {
-	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
-	config = require("ui.paint"),
+    lazy = true,
+    event = { "BufReadPost", "BufNewFile" },
+    config = require("ui.paint"),
 }
 ui["mrjones2014/smart-splits.nvim"] = {
 	lazy = true,
-	event = { "CursorHoldI", "CursorHold" },
+    event = { "BufWinEnter" },
 	config = require("ui.splits"),
 }
 ui["folke/edgy.nvim"] = {
-	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
-	config = require("ui.edgy"),
+    lazy = true,
+    event = "VeryLazy",
+    config = require("ui.edgy"),
 }
 ui["folke/todo-comments.nvim"] = {
 	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
+    event = { "BufReadPost", "BufNewFile" },
 	config = require("ui.todo"),
 	dependencies = "nvim-lua/plenary.nvim",
 }

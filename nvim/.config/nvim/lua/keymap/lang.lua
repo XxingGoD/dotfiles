@@ -8,8 +8,10 @@ local mappings = {
 			:with_noremap()
 			:with_silent()
 			:with_desc("tool: Toggle markdown preview in Neovim"),
-		-- Plugin: MarkdownPreview
-		["n|<F12>"] = map_cr("MarkdownPreviewToggle"):with_noremap():with_silent():with_desc("tool: Preview markdown"),
+		["n|<F12>"] = map_cr("RenderMarkdown preview")
+			:with_noremap()
+			:with_silent()
+			:with_desc("tool: Preview markdown"),
 	},
 }
 

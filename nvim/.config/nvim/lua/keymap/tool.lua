@@ -221,6 +221,8 @@ local mappings = {
 		["n|<leader>fR"] = map_callback(function()
 				if require("core.settings").search_backend == "fzf" then
 					require("fzf-lua").resume()
+				else
+					vim.cmd("Telescope resume")
 				end
 			end)
 			:with_noremap()

@@ -81,7 +81,49 @@ local function find_compile_commands_dir(root_dir)
 		end
 	end
 
+	for name, kind in vim.fs.dir(root_dir) do
+		if kind == "directory" and (name:match("^build[-_]") or name:match("^cmake%-build%-")) then
+			local dir = root_dir .. "/" .. name
+			if vim.uv.fs_stat(dir .. "/compile_commands.json") then
+				return dir
+			end
+		end
+	end
+
 	return nil
+end
+
+local clangd_root_markers = {
+	".clangd",
+	".clang-tidy",
+	".clang-format",
+	"compile_commands.json",
+	"compile_flags.txt",
+	"configure.ac",
+	".git",
+}
+
+local function find_clangd_root(bufnr)
+	local fname = vim.api.nvim_buf_get_name(bufnr)
+	local home = vim.fs.normalize(vim.uv.os_homedir())
+	if fname ~= "" then
+		for dir in vim.fs.parents(fname) do
+			if vim.fs.normalize(dir) == home then
+				break
+			end
+			if find_compile_commands_dir(dir) then
+				return dir
+			end
+		end
+	end
+
+	local root = vim.fs.root(bufnr, clangd_root_markers)
+	if root and vim.fs.normalize(root) ~= home then
+		return root
+	end
+
+	local file_dir = fname ~= "" and vim.fs.normalize(vim.fs.dirname(fname)) or nil
+	return file_dir ~= home and file_dir or nil
 end
 
 -- https://github.com/neovim/nvim-lspconfig/blob/master/lua/lspconfig/configs/clangd.lua
@@ -97,7 +139,7 @@ return function(defaults)
 		"--clang-tidy",
 		"--completion-parse=auto",
 		"--completion-style=bundled",
-		"--function-arg-placeholders",
+		"--function-arg-placeholders=1",
 		"--header-insertion-decorators",
 		"--header-insertion=iwyu",
 		"--limit-references=1000",
@@ -105,21 +147,46 @@ return function(defaults)
 		"--pch-storage=memory",
 	}
 
+	local function start_clangd(dispatchers, config)
+		local cmd = vim.deepcopy(base_cmd)
+		local compile_commands_dir = find_compile_commands_dir(config.root_dir)
+		if compile_commands_dir then
+			table.insert(cmd, "--compile-commands-dir=" .. compile_commands_dir)
+		end
+
+		return vim.lsp.rpc.start(cmd, dispatchers, {
+			cwd = config.cmd_cwd,
+			env = config.cmd_env,
+			detached = config.detached,
+		})
+	end
+
+	local default_before_init = defaults.before_init
 	vim.lsp.config("clangd", {
-		capabilities = vim.tbl_deep_extend("keep", { offsetEncoding = { "utf-16", "utf-8" } }, defaults.capabilities),
+		capabilities = defaults.capabilities,
 		single_file_support = true,
-		cmd = vim.deepcopy(base_cmd),
-		on_new_config = function(new_config, root_dir)
-			local compile_commands_dir = find_compile_commands_dir(root_dir)
-			new_config.cmd = vim.deepcopy(base_cmd)
-			if compile_commands_dir then
-				table.insert(new_config.cmd, "--compile-commands-dir=" .. compile_commands_dir)
+		cmd = start_clangd,
+		root_dir = function(bufnr, on_dir)
+			if vim.b[bufnr].bigfile == true or vim.b[bufnr].large_file == true then
+				return
 			end
+			local root = find_clangd_root(bufnr)
+			if root then
+				on_dir(root)
+			end
+		end,
+		before_init = function(params, config)
+			if default_before_init then
+				default_before_init(params, config)
+			end
+			-- clangd 22 deprecates this private extension in favour of LSP 3.17's
+			-- general.positionEncodings capability, which Neovim advertises.
+			params.capabilities.offsetEncoding = nil
 		end,
 		on_attach = function(client, bufnr)
 			vim.api.nvim_buf_create_user_command(bufnr, "LspClangdSwitchSourceHeader", function()
 				switch_source_header_splitcmd(bufnr, "edit", client)
-			end, { desc = "Open source/header in a new vsplit" })
+			end, { desc = "Open source/header in current window" })
 
 			vim.api.nvim_buf_create_user_command(bufnr, "LspClangdSwitchSourceHeaderVsplit", function()
 				switch_source_header_splitcmd(bufnr, "vsplit", client)

@@ -45,6 +45,29 @@ M.setup = function()
 			require("cmp_nvim_lsp").default_capabilities()
 		),
 	}
+
+	local function with_bigfile_guard(lsp_name, config)
+		local inherited = vim.lsp.config[lsp_name] or {}
+		local root_dir = config.root_dir or inherited.root_dir
+		local root_markers = config.root_markers or inherited.root_markers
+
+		config.root_dir = function(bufnr, on_dir)
+            if (vim.b[bufnr].bigfile == true or vim.b[bufnr].large_file == true) and vim.bo[bufnr].filetype ~= "python" then
+                return
+            end
+
+			if type(root_dir) == "function" then
+				root_dir(bufnr, on_dir)
+			elseif type(root_dir) == "string" then
+				on_dir(root_dir)
+			else
+				on_dir(root_markers and vim.fs.root(bufnr, root_markers) or nil)
+			end
+		end
+
+		return config
+	end
+
 	---A handler to setup all servers defined under `completion/servers/*.lua`
 	---@param lsp_name string
 	local function mason_lsp_handler(lsp_name)
@@ -78,24 +101,23 @@ please REMOVE your LSP configuration (rust_analyzer.lua) from the `servers` dire
 
 		if not ok then
 			-- Default to use factory config for server(s) that doesn't include a spec
-			require("modules.utils").register_server(lsp_name, opts)
+			require("modules.utils").register_server(lsp_name, with_bigfile_guard(lsp_name, vim.deepcopy(opts)))
 		elseif type(custom_handler) == "function" then
 			-- Case where language server requires its own setup
 			-- Be sure to call `vim.lsp.config()` within the setup function.
 			-- Refer to |vim.lsp.config()| for documentation.
 			-- For an example, see `clangd.lua`.
 			custom_handler(opts)
+			vim.lsp.config(lsp_name, with_bigfile_guard(lsp_name, {}))
 			vim.lsp.enable(lsp_name)
 		elseif type(custom_handler) == "table" then
-			require("modules.utils").register_server(
-				lsp_name,
-				vim.tbl_deep_extend(
-					"force",
-					opts,
-					type(default_handler) == "table" and default_handler or {},
-					custom_handler
-				)
+			local config = vim.tbl_deep_extend(
+				"force",
+				opts,
+				type(default_handler) == "table" and default_handler or {},
+				custom_handler
 			)
+			require("modules.utils").register_server(lsp_name, with_bigfile_guard(lsp_name, config))
 		else
 			vim.notify(
 				string.format(
@@ -140,6 +162,12 @@ please REMOVE your LSP configuration (rust_analyzer.lua) from the `servers` dire
 	for _, pkg in ipairs(mason_registry.get_installed_package_names()) do
 		setup_lsp_for_package(pkg)
 	end
+
+	if M._install_handler then
+		mason_registry:off("package:install:success", M._install_handler)
+	end
+	M._install_handler = vim.schedule_wrap(setup_lsp_for_package)
+	mason_registry:on("package:install:success", M._install_handler)
 end
 
 return M

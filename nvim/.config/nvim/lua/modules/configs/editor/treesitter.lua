@@ -26,6 +26,11 @@ local function disable_auto_indent(bufnr)
 end
 
 local function start_treesitter(bufnr)
+	if require("core.bigfile").is_big(bufnr) then
+		pcall(vim.treesitter.stop, bufnr)
+		return nil
+	end
+
 	local lang = get_lang(bufnr)
 	if not has_parser(lang) then
 		return nil
@@ -61,7 +66,9 @@ return function()
 		group = group,
 		callback = function(event)
 			disable_auto_indent(event.buf)
-			enable_treesitter_folds(event.buf)
+			if not require("core.bigfile").is_big(event.buf) then
+				enable_treesitter_folds(event.buf)
+			end
 		end,
 	})
 
@@ -70,7 +77,9 @@ return function()
 		callback = function(event)
 			if vim.bo[event.buf].filetype ~= "" then
 				disable_auto_indent(event.buf)
-				enable_treesitter_folds(event.buf)
+				if not require("core.bigfile").is_big(event.buf) then
+					enable_treesitter_folds(event.buf)
+				end
 			end
 		end,
 	})

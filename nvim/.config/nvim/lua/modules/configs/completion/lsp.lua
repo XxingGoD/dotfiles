@@ -1,4 +1,7 @@
 return function()
+	local formatting = require("completion.formatting")
+	formatting.configure_format_on_save()
+
 	require("completion.neoconf").setup()
 	require("completion.mason").setup()
 	require("completion.mason-lspconfig").setup()
@@ -19,7 +22,4 @@ return function()
 	end
 
 	pcall(require, "user.configs.lsp")
-
-	-- Start LSPs
-	pcall(vim.cmd.LspStart)
 end

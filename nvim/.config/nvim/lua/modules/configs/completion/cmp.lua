@@ -160,18 +160,17 @@ return function()
 		},
 		-- You should specify your *installed* sources.
 		sources = {
-			{ name = "nvim_lsp", max_item_count = 350 },
+            { name = "nvim_lsp", max_item_count = 100 },
 			{ name = "luasnip" },
 			{ name = "path" },
 			{ name = "spell" },
 			{ name = "tmux" },
-			{ name = "orgmode" },
 			{
 				name = "buffer",
 				option = {
-					get_bufnrs = function()
-						return vim.api.nvim_buf_line_count(0) < 15000 and vim.api.nvim_list_bufs() or {}
-					end,
+                    get_bufnrs = function()
+                        return { vim.api.nvim_get_current_buf() }
+                    end,
 				},
 			},
 			{ name = "latex_symbols" },

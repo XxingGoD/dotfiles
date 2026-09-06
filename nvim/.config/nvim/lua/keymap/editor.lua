@@ -12,10 +12,11 @@ local ts_to_swap = require("nvim-treesitter-textobjects.swap")
 local ts_to_move = require("nvim-treesitter-textobjects.move")
 local ts_to_repeat_move = require("nvim-treesitter-textobjects.repeatable_move")
 
-local function move_vertical_and_lock_column(direction)
+local function move_vertical_and_preserve_column(direction)
 	local count = vim.v.count1
+	local curswant = vim.fn.winsaveview().curswant
 	vim.cmd.normal({ args = { tostring(count) .. direction }, bang = true })
-	vim.fn.winrestview({ curswant = math.max(vim.fn.col(".") - 1, 0) })
+	vim.fn.winrestview({ curswant = curswant })
 end
 
 local mappings = {
@@ -57,25 +58,25 @@ local mappings = {
 		["n|n"] = map_cmd("nzzzv"):with_noremap():with_desc("edit: Next search result"),
 		["n|N"] = map_cmd("Nzzzv"):with_noremap():with_desc("edit: Prev search result"),
 		["n|j"] = map_callback(function()
-				move_vertical_and_lock_column("j")
+				move_vertical_and_preserve_column("j")
 			end)
 			:with_noremap()
 			:with_silent()
 			:with_desc("edit: Move cursor down"),
 		["n|<Down>"] = map_callback(function()
-				move_vertical_and_lock_column("j")
+				move_vertical_and_preserve_column("j")
 			end)
 			:with_noremap()
 			:with_silent()
 			:with_desc("edit: Move cursor down"),
 		["n|k"] = map_callback(function()
-				move_vertical_and_lock_column("k")
+				move_vertical_and_preserve_column("k")
 			end)
 			:with_noremap()
 			:with_silent()
 			:with_desc("edit: Move cursor up"),
 		["n|<Up>"] = map_callback(function()
-				move_vertical_and_lock_column("k")
+				move_vertical_and_preserve_column("k")
 			end)
 			:with_noremap()
 			:with_silent()
@@ -102,9 +103,12 @@ local mappings = {
 	},
 	plugins = {
 		-- Plugin: persisted.nvim
-		["n|<leader>ss"] = map_cu("SessionSave"):with_noremap():with_silent():with_desc("session: Save"),
-		["n|<leader>sl"] = map_cu("SessionLoad"):with_noremap():with_silent():with_desc("session: Load current"),
-		["n|<leader>sd"] = map_cu("SessionDelete"):with_noremap():with_silent():with_desc("session: Delete"),
+		["n|<leader>ss"] = map_cu("Persisted save"):with_noremap():with_silent():with_desc("session: Save"),
+		["n|<leader>sl"] = map_cu("Persisted load"):with_noremap():with_silent():with_desc("session: Load current"),
+		["n|<leader>sd"] = map_cu("Persisted delete_current")
+			:with_noremap()
+			:with_silent()
+			:with_desc("session: Delete current"),
 
 		-- Plugin: comment.nvim
 		["n|gcc"] = map_callback(function()
@@ -320,11 +324,41 @@ local mappings = {
 			:with_desc("editnxo: Move to previous class.outer end"),
 		-- movements repeat
 		["nxo|;"] = map_callback(function()
-				ts_to_repeat_move.repeat_last_move_next()
+				ts_to_repeat_move.repeat_last_move()
 			end)
 			:with_silent()
 			:with_noremap()
 			:with_desc("editnxo: Repeat last move"),
+		["nxo|,"] = map_callback(function()
+				ts_to_repeat_move.repeat_last_move_opposite()
+			end)
+			:with_silent()
+			:with_noremap()
+			:with_desc("editnxo: Repeat last move in opposite direction"),
+		["nxo|f"] = map_callback(function()
+				return ts_to_repeat_move.builtin_f_expr()
+			end)
+			:with_noremap()
+			:with_expr()
+			:with_desc("editnxo: Find character forward"),
+		["nxo|F"] = map_callback(function()
+				return ts_to_repeat_move.builtin_F_expr()
+			end)
+			:with_noremap()
+			:with_expr()
+			:with_desc("editnxo: Find character backward"),
+		["nxo|t"] = map_callback(function()
+				return ts_to_repeat_move.builtin_t_expr()
+			end)
+			:with_noremap()
+			:with_expr()
+			:with_desc("editnxo: Till character forward"),
+		["nxo|T"] = map_callback(function()
+				return ts_to_repeat_move.builtin_T_expr()
+			end)
+			:with_noremap()
+			:with_expr()
+			:with_desc("editnxo: Till character backward"),
 	},
 }
 

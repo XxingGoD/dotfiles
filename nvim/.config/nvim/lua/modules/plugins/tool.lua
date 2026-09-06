@@ -25,12 +25,13 @@ tool["pittcat/codex.nvim"] = {
 -- 	config = require("tool.fcitx5"),
 -- }
 tool["Bekaboo/dropbar.nvim"] = {
-	lazy = false,
-	config = require("tool.dropbar"),
-	dependencies = {
-		"nvim-tree/nvim-web-devicons",
-		"nvim-telescope/telescope-fzf-native.nvim",
-	},
+    lazy = true,
+    event = { "BufReadPost", "BufNewFile" },
+    config = function() require("tool.dropbar")() end,
+    dependencies = {
+        "nvim-tree/nvim-web-devicons",
+        "nvim-telescope/telescope-fzf-native.nvim",
+    },
 }
 tool["nvim-tree/nvim-tree.lua"] = {
 	lazy = true,
@@ -74,9 +75,8 @@ tool["folke/trouble.nvim"] = {
 	config = require("tool.trouble"),
 }
 tool["folke/which-key.nvim"] = {
-	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
-	config = require("tool.which-key"),
+    lazy = false,
+    config = require("tool.which-key"),
 }
 tool["gelguy/wilder.nvim"] = {
 	lazy = true,
@@ -85,14 +85,6 @@ tool["gelguy/wilder.nvim"] = {
 	dependencies = "romgrk/fzy-lua-native",
 }
 
--- Needs `fzf` installed and in $PATH
-tool["ibhagwan/fzf-lua"] = {
-	lazy = true,
-	cond = (settings.search_backend == "fzf"),
-	cmd = "FzfLua",
-	config = require("tool.fzf-lua"),
-	dependencies = { "nvim-tree/nvim-web-devicons" },
-}
 
 ----------------------------------------------------------------------
 --                        Telescope Plugins                         --
@@ -115,7 +107,7 @@ tool["nvim-telescope/telescope.nvim"] = {
 		},
 		{
 			"DrKJeff16/project.nvim",
-			event = { "CursorHold", "CursorHoldI" },
+            event = { "BufReadPost", "BufNewFile" },
 			config = require("tool.project"),
 		},
 		{

@@ -73,6 +73,18 @@ settings["disabled_plugins"] = {}
 ---@type boolean
 settings["load_big_files_faster"] = true
 
+-- Files at or above either hard threshold use a reduced feature set. The
+-- combined thresholds catch moderately large, structurally complex files.
+---@type { enabled: boolean, size_bytes: integer, line_count: integer, combined_size_bytes: integer, combined_line_count: integer, undo_levels: integer }
+settings["bigfile"] = {
+	enabled = true,
+	size_bytes = 2 * 1024 * 1024,
+	line_count = 20000,
+	combined_size_bytes = 256 * 1024,
+	combined_line_count = 5000,
+	undo_levels = 100,
+}
+
 -- Customize the global color palette here.
 -- These settings will override the defaults during initialization.
 -- Parameters will auto-complete as you type.
@@ -98,7 +110,7 @@ settings["background"] = "dark"
 -- Set the command for opening external URLs.
 -- This is ignored on Windows and macOS, which use built-in handlers.
 ---@type string
-settings["external_browser"] = "chrome-cli open"
+settings["external_browser"] = "xdg-open"
 
 -- Set the search backend here.
 -- `telescope` is fine for most use cases.
@@ -117,10 +129,6 @@ settings["lsp_inlayhints"] = false
 settings["lsp_deps"] = {
 	"bashls",
 	"basedpyright",
-	"clangd",
-	"gopls",
-	"html",
-	"jsonls",
 	"lua_ls",
 	"ruff",
 }

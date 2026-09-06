@@ -1,5 +1,6 @@
 return function()
 	local neoscroll = require("neoscroll")
+	local bigfile = require("core.bigfile")
 
 	require("modules.utils").load_plugin("neoscroll", {
 		hide_cursor = true,
@@ -45,6 +46,16 @@ return function()
 	}
 
 	for lhs, rhs in pairs(keymaps) do
-		vim.keymap.set(modes, lhs, rhs, { silent = true })
+		local keys = lhs
+		local action = rhs
+		vim.keymap.set(modes, keys, function()
+			if bigfile.is_big(0) then
+				local count = vim.v.count
+				local prefix = count > 0 and tostring(count) or ""
+				vim.api.nvim_feedkeys(vim.keycode(prefix .. keys), "ni", false)
+				return
+			end
+			action()
+		end, { silent = true })
 	end
 end

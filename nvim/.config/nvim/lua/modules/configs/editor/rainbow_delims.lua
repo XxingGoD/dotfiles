@@ -2,6 +2,10 @@ return function()
 	---@param threshold number @Use global strategy if nr of lines exceeds this value
 	local function init_strategy(threshold)
 		return function()
+			if require("core.bigfile").is_big(0) then
+				return nil
+			end
+
 			-- Disable on very large files
 			local line_count = vim.api.nvim_buf_line_count(0)
 			if line_count > 15000 then

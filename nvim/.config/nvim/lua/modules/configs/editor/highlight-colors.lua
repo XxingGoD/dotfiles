@@ -26,5 +26,8 @@ return function()
 			"prompt",
 			"terminal",
 		},
+		exclude_buffer = function(bufnr)
+			return require("core.bigfile").is_big(bufnr)
+		end,
 	})
 end

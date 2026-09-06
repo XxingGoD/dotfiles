@@ -42,6 +42,10 @@ local mapping = require("keymap.completion")
 vim.api.nvim_create_autocmd("LspAttach", {
 	group = vim.api.nvim_create_augroup("LspKeymapLoader", { clear = true }),
 	callback = function(event)
+		if require("core.bigfile").is_big(event.buf) then
+			return
+		end
+
 		if not _G._debugging then
 			-- LSP Keymaps
 			mapping.lsp(event.buf)
@@ -53,14 +57,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
 				vim.lsp.inlay_hint.enable(inlayhints_enabled == true, { bufnr = event.buf })
 			end
 		end
-	end,
-})
-
--- Start treesitter for installed parsers
-vim.api.nvim_create_autocmd("FileType", {
-	pattern = require("core.settings").treesitter_deps,
-	callback = function(args)
-		vim.treesitter.start(args.buf)
 	end,
 })
 
@@ -91,11 +87,6 @@ end
 function autocmd.load_autocmds()
 	local definitions = {
 		bufs = {
-			-- Reload vim config automatically
-			{
-				"BufWritePost",
-				[[$VIM_PATH/{*.vim,*.yaml,vimrc} nested source $MYVIMRC | redraw]],
-			},
 			-- Reload Vim script automatically if setlocal autoread
 			{
 				"BufWritePost,FileWritePost",
@@ -122,12 +113,12 @@ function autocmd.load_autocmds()
 			{
 				"WinEnter,BufEnter,InsertLeave",
 				"*",
-				[[if ! &cursorline && &filetype !~# '^\(dashboard\|clap_\)' && ! &pvw | setlocal cursorline | endif]],
+				[[if ! &cursorline && !get(b:, 'bigfile', v:false) && !get(b:, 'large_file', v:false) && &filetype !~# '^\(dashboard\|clap_\)' && ! &pvw | setlocal cursorline | endif]],
 			},
 			{
 				"WinLeave,BufLeave,InsertEnter",
 				"*",
-				[[if &cursorline && &filetype !~# '^\(dashboard\|clap_\)' && ! &pvw | setlocal nocursorline | endif]],
+				[[if &cursorline && !get(b:, 'bigfile', v:false) && !get(b:, 'large_file', v:false) && &filetype !~# '^\(dashboard\|clap_\)' && ! &pvw | setlocal nocursorline | endif]],
 			},
 			-- Attempt to write shada when leaving nvim
 			{
@@ -148,7 +139,7 @@ function autocmd.load_autocmds()
 			{
 				"FileType",
 				"c,cpp",
-				"nnoremap <silent> <buffer> <leader>h <Cmd>ClangdSwitchSourceHeader<CR>",
+				"nnoremap <silent> <buffer> <leader>h <Cmd>LspClangdSwitchSourceHeader<CR>",
 			},
 		},
 		yank = {

@@ -7,6 +7,7 @@ return function()
 	}
 	local utils = require("dropbar.utils")
 	local sources = require("dropbar.sources")
+	local default_bar_enable = require("dropbar.configs").opts.bar.enable
 	-- Custom source to display only the leaf filename in the dropbar
 	sources.symbols = {
 		get_symbols = function(buf, win, cursor)
@@ -17,6 +18,9 @@ return function()
 
 	require("modules.utils").load_plugin("dropbar", {
 		bar = {
+			enable = function(buf, win, info)
+				return not require("core.bigfile").is_big(buf) and default_bar_enable(buf, win, info)
+			end,
 			hover = false,
 			truncate = true,
 			pick = { pivots = "etovxqpdygfblzhckisuran" },

@@ -3,6 +3,7 @@ local completion = {}
 completion["neovim/nvim-lspconfig"] = {
 	lazy = true,
 	event = { "BufReadPre", "BufNewFile" },
+	cmd = { "Format", "FormatToggle", "FormatterToggleFt" },
 	config = require("completion.lsp"),
 	dependencies = {
 		{ "mason-org/mason.nvim" },
@@ -22,7 +23,7 @@ completion["nvimdev/lspsaga.nvim"] = {
 }
 completion["rachartier/tiny-inline-diagnostic.nvim"] = {
 	lazy = false,
-	config = require("completion.tiny-inline-diagnostic"),
+    config = function() require("completion.tiny-inline-diagnostic")() end,
 }
 completion["hrsh7th/nvim-cmp"] = {
 	lazy = true,

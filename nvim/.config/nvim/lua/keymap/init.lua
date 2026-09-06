@@ -31,6 +31,10 @@ local mappings = {
 			:with_nowait()
 			:with_desc("package: Restore"),
 		["n|<leader>px"] = map_cr("Lazy clean"):with_silent():with_noremap():with_nowait():with_desc("package: Clean"),
+        ["n|<leader>?"] = map_cr("WhichKey n <leader>")
+            :with_silent()
+            :with_noremap()
+            :with_desc("core: Show keymap help"),
 	},
 }
 

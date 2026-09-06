@@ -2,28 +2,13 @@ local editor = {}
 
 editor["olimorris/persisted.nvim"] = {
 	lazy = true,
-	cmd = {
-		"SessionToggle",
-		"SessionStart",
-		"SessionStop",
-		"SessionSave",
-		"SessionLoad",
-		"SessionLoadLast",
-		"SessionLoadFromFile",
-		"SessionDelete",
-	},
+	cmd = "Persisted",
 	config = require("editor.persisted"),
-}
-editor["m4xshen/autoclose.nvim"] = {
-	enabled = false,
-	lazy = true,
-	event = "InsertEnter",
-	config = require("editor.autoclose"),
 }
 editor["pteroctopus/faster.nvim"] = {
 	lazy = false,
 	cond = require("core.settings").load_big_files_faster,
-	config = require("editor.faster"),
+    config = function() require("editor.faster")() end,
 }
 editor["ojroques/nvim-bufdel"] = {
 	lazy = true,
@@ -31,12 +16,12 @@ editor["ojroques/nvim-bufdel"] = {
 }
 editor["folke/flash.nvim"] = {
 	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
+    event = { "BufReadPost", "BufNewFile" },
 	config = require("editor.flash"),
 }
 editor["numToStr/Comment.nvim"] = {
 	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
+    event = { "BufReadPost", "BufNewFile" },
 	config = require("editor.comment"),
 }
 editor["sindrets/diffview.nvim"] = {
@@ -46,7 +31,7 @@ editor["sindrets/diffview.nvim"] = {
 }
 editor["echasnovski/mini.align"] = {
 	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
+    event = { "BufReadPost", "BufNewFile" },
 	config = require("editor.align"),
 }
 editor["echasnovski/mini.cursorword"] = {
@@ -61,7 +46,7 @@ editor["nvim-mini/mini.indentscope"] = {
 }
 editor["brenoprata10/nvim-highlight-colors"] = {
 	lazy = true,
-	event = { "CursorHold", "CursorHoldI" },
+    event = { "BufReadPost", "BufNewFile" },
 	config = require("editor.highlight-colors"),
 }
 editor["romainl/vim-cool"] = {
@@ -93,7 +78,7 @@ editor["nvim-treesitter/nvim-treesitter"] = {
 			vim.api.nvim_command([[TSUpdate]])
 		end
 	end,
-	config = require("editor.treesitter"),
+    config = function() require("editor.treesitter")() end,
 	dependencies = {
 		{
 			"nvim-treesitter/nvim-treesitter-textobjects",

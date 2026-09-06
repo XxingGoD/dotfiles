@@ -7,6 +7,9 @@ return function()
 		multiline_threshold = 20,
 		trim_scope = "outer",
 		mode = "cursor",
+		on_attach = function(bufnr)
+			return not require("core.bigfile").is_big(bufnr)
+		end,
 		-- Ensure compatibility with Glance's preview window
 		zindex = 50,
 	})
